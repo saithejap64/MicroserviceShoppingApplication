@@ -3,6 +3,7 @@ package com.saitheja.order_service.service;
 import com.saitheja.order_service.dto.InventoryResponseDTO;
 import com.saitheja.order_service.dto.OrderLineItemsDTO;
 import com.saitheja.order_service.dto.OrderRequestDTO;
+import com.saitheja.order_service.exception.ProductNotFoundException;
 import com.saitheja.order_service.model.Order;
 import com.saitheja.order_service.model.OrderLineItems;
 import com.saitheja.order_service.repository.OrderRepository;
@@ -34,7 +35,29 @@ public class OrderService {
                 .toList();
 
         order.setOrderLineItems(orderLineItems);
-        orderRepository.save(order);
+
+
+        List<String> skuCodes = order.getOrderLineItems().stream().
+                map(OrderLineItems::getSkuCode).toList();
+
+        //call inventory service, and place order if product is in stock
+        InventoryResponseDTO[] inventoryResponseArray=webClient.get()
+                .uri("http://localhost:8083/api/inventory",
+                        uriBuilder -> uriBuilder.queryParam("skuCode",skuCodes).build())
+                .retrieve()
+                .bodyToMono(InventoryResponseDTO[].class)
+                .block();
+
+
+        Boolean allProductsInStock=Arrays.stream(inventoryResponseArray)
+                .allMatch(InventoryResponseDTO::isInStock);
+
+        if(allProductsInStock){
+            orderRepository.save(order);
+        }else {
+            throw new ProductNotFoundException("Requested product is/are not found, please try again later");
+        }
+
     }
 
     private OrderLineItems mapToDTO(OrderLineItemsDTO orderLineItemsDTO) {
