@@ -10,10 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class InventoryService {
-
-    @Autowired
-    private InventoryRepository inventoryRepository;
+    private final InventoryRepository inventoryRepository;
 
     @Transactional(readOnly = true)
     public boolean isInStock(String skuCode) {

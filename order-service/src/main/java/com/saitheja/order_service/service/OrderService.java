@@ -34,12 +34,6 @@ public class OrderService {
                 .toList();
 
         order.setOrderLineItems(orderLineItems);
-
-        List<String> skuCodes = order.getOrderLineItems().stream()
-                .map(OrderLineItems::getSkuCode)
-                .toList();
-
-        order.setOrderLineItems(orderLineItems);
         orderRepository.save(order);
     }
 
