@@ -14,7 +14,10 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +25,7 @@ import java.util.UUID;
 public class OrderService {
 
     private final OrderRepository orderRepository;
-    private final WebClient webClient;
+    private final WebClient.Builder webClientBuilder;
 
     public void placeOrder(OrderRequestDTO orderRequestDTO){
         Order order=new Order();
@@ -41,22 +44,31 @@ public class OrderService {
                 map(OrderLineItems::getSkuCode).toList();
 
         //call inventory service, and place order if product is in stock
-        InventoryResponseDTO[] inventoryResponseArray=webClient.get()
-                .uri("http://localhost:8083/api/inventory",
+        InventoryResponseDTO[] inventoryResponseArray=webClientBuilder.build().get()
+                .uri("http://inventory-service/api/inventory",
                         uriBuilder -> uriBuilder.queryParam("skuCode",skuCodes).build())
                 .retrieve()
                 .bodyToMono(InventoryResponseDTO[].class)
                 .block();
 
 
-        Boolean allProductsInStock=Arrays.stream(inventoryResponseArray)
+        Boolean allProductsInStock= Arrays.stream(inventoryResponseArray)
                 .allMatch(InventoryResponseDTO::isInStock);
-
         if(allProductsInStock){
             orderRepository.save(order);
         }else {
             throw new ProductNotFoundException("Requested product is/are not found, please try again later");
         }
+
+//        List<InventoryResponseDTO> allProductsInNotInStock= Arrays.stream(inventoryResponseArray)
+//                .filter(x -> skuCodes.contains(x.getSkuCode()) && !x.isInStock()).collect(Collectors.toList());
+
+//        if(allProductsInNotInStock.isEmpty()){
+//            orderRepository.save(order);
+//        }else {
+//            throw new ProductNotFoundException("Following items are not present"+allProductsInNotInStock);
+//        }
+
 
     }
 
