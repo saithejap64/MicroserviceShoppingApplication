@@ -12,10 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
 
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -52,31 +49,43 @@ public class OrderService {
                 .block();
 
 
-        Boolean allProductsInStock= Arrays.stream(inventoryResponseArray)
+        boolean allProductsInStock= Arrays.stream(inventoryResponseArray)
                 .allMatch(InventoryResponseDTO::isInStock);
-        if(allProductsInStock){
+
+
+        //custom function to find unmatched product skuCodes
+        Set<String > inventorySkuCodes = Arrays.stream(inventoryResponseArray).map(InventoryResponseDTO::getSkuCode)
+                .collect(Collectors.toSet());
+
+        List<String > skuCodesNonMatch= skuCodes.stream()
+                .filter(sku -> !inventorySkuCodes.contains(sku))
+                .collect(Collectors.toList());
+
+        List<String > skuCodeOutOfQuantity= Arrays.stream(inventoryResponseArray)
+                .filter((item ->  item.isInStock()==false))
+                .map(InventoryResponseDTO::getSkuCode)
+                .collect(Collectors.toList());
+
+        //System.out.println(skuCodesNonMatch);
+
+
+        if(allProductsInStock && skuCodesNonMatch.isEmpty()){
             orderRepository.save(order);
-        }else {
-            throw new ProductNotFoundException("Requested product is/are not found, please try again later");
+        }else if(!skuCodesNonMatch.isEmpty()){
+            throw new ProductNotFoundException("Requested product " + skuCodesNonMatch +" is not found in the inventory, please try again later");
         }
-
-//        List<InventoryResponseDTO> allProductsInNotInStock= Arrays.stream(inventoryResponseArray)
-//                .filter(x -> skuCodes.contains(x.getSkuCode()) && !x.isInStock()).collect(Collectors.toList());
-
-//        if(allProductsInNotInStock.isEmpty()){
-//            orderRepository.save(order);
-//        }else {
-//            throw new ProductNotFoundException("Following items are not present"+allProductsInNotInStock);
-//        }
+        else {
+            throw new ProductNotFoundException("Requested product, " +skuCodeOutOfQuantity+" is out of quantity,  please try again later");
+        }
 
 
     }
 
-    private OrderLineItems mapToDTO(OrderLineItemsDTO orderLineItemsDTO) {
-        OrderLineItems orderLineItems=new OrderLineItems();
-        orderLineItems.setPrice(orderLineItemsDTO.getPrice());
-        orderLineItems.setQuantity(orderLineItemsDTO.getQuantity());
-        orderLineItems.setSkuCode(orderLineItemsDTO.getSkuCode());
+    private OrderLineItems mapToDTO(OrderLineItemsDTO orderLineItemsDto) {
+        OrderLineItems orderLineItems = new OrderLineItems();
+        orderLineItems.setPrice(orderLineItemsDto.getPrice());
+        orderLineItems.setQuantity(orderLineItemsDto.getQuantity());
+        orderLineItems.setSkuCode(orderLineItemsDto.getSkuCode());
         return orderLineItems;
     }
 }
